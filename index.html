@@ -925,12 +925,17 @@ function initTTS() {
 
 function pickFemaleVoice() {
   if (!voices.length) return;
-  const prefs = ['jenny','aria','samantha','karen','zira','moira','fiona','victoria','tessa','google us english','google uk english female'];
-  for (const p of prefs) { const m = voices.find(v => v.name.toLowerCase().includes(p)); if (m) { ttsVoice = m; updateVoiceSel(); return; } }
-  const femKW = ['female','jenny','samantha','karen','zira','hazel','susan','amy','emma','joanna','salli','kendra','kimberly','ivy','olivia','aria','sara'];
+  // Filter English voices first
   const en = voices.filter(v => v.lang.startsWith('en'));
-  for (const v of en) { if (femKW.some(k => v.name.toLowerCase().includes(k))) { ttsVoice = v; updateVoiceSel(); return; } }
+  const pool = en.length ? en : voices;
+  // Try preferred female voices
+  const prefs = ['jenny','aria','samantha','karen','zira','moira','fiona','victoria','tessa','google us english','google uk english female'];
+  for (const p of prefs) { const m = pool.find(v => v.name.toLowerCase().includes(p)); if (m) { ttsVoice = m; updateVoiceSel(); return; } }
+  const femKW = ['female','jenny','samantha','karen','zira','hazel','susan','amy','emma','joanna','salli','kendra','kimberly','ivy','olivia','aria','sara'];
+  for (const v of pool) { if (femKW.some(k => v.name.toLowerCase().includes(k))) { ttsVoice = v; updateVoiceSel(); return; } }
+  // Fallback: any English voice, or first available
   if (en.length) { ttsVoice = en[0]; updateVoiceSel(); }
+  else { ttsVoice = voices[0]; updateVoiceSel(); }
 }
 
 function populateVoices() {
@@ -961,6 +966,7 @@ function speak(text) {
   const clean = text.replace(/[\u{1F600}-\u{1F9FF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}]/gu,'').replace(/[⭐✦✓⚠🔍💡💬↩🎯🧠⚔🤔🚨☁️♪̸♪]/g,'').replace(/\s+/g,' ').trim();
   if (!clean) return;
   const u = new SpeechSynthesisUtterance(clean);
+  u.lang = 'en-US';
   if (ttsVoice) u.voice = ttsVoice;
   u.rate = ttsRate; u.pitch = 1.05; u.volume = 1;
   const last = $('msgs').lastElementChild;
