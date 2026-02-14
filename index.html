@@ -580,6 +580,9 @@
     <h2>ChessMind Pro</h2>
     <p id="lockMsg" style="font-size:13px;color:var(--text-2);margin-bottom:16px;">Enter your password to continue</p>
     <input type="password" id="lockInput" placeholder="Password" onkeydown="if(event.key==='Enter')unlockApp()" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--border-2);background:var(--bg-1);color:var(--text-1);font-size:15px;text-align:center;margin-bottom:12px;">
+    <label style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;color:var(--text-2);margin-bottom:12px;cursor:pointer;">
+      <input type="checkbox" id="rememberMe" style="width:16px;height:16px;cursor:pointer;"> Remember me for 7 days
+    </label>
     <button class="btn primary" onclick="unlockApp()" style="width:100%;">Unlock</button>
     <div id="lockError" style="margin-top:8px;font-size:12px;color:var(--red);"></div>
   </div>
@@ -698,6 +701,14 @@ function initLock() {
     // First time — ask user to set a password
     $('setupPwOverlay').style.display = 'flex';
   } else {
+    // Check if "remember me" is still valid
+    const rememberUntil = localStorage.getItem('chessmind_remember');
+    if (rememberUntil && Date.now() < parseInt(rememberUntil)) {
+      // Still remembered — skip lock screen
+      appUnlocked = true;
+      $('colorOverlay').style.display = 'flex';
+      return;
+    }
     // Show lock screen
     $('lockOverlay').style.display = 'flex';
     setTimeout(() => $('lockInput').focus(), 100);
@@ -728,6 +739,12 @@ function unlockApp() {
     appUnlocked = true;
     $('lockInput').value = '';
     $('lockError').textContent = '';
+    // Save "remember me" if checked (7 days)
+    if ($('rememberMe').checked) {
+      localStorage.setItem('chessmind_remember', Date.now() + 7 * 24 * 60 * 60 * 1000);
+    } else {
+      localStorage.removeItem('chessmind_remember');
+    }
     $('colorOverlay').style.display = 'flex';
   } else {
     $('lockError').textContent = 'Wrong password. Try again.';
