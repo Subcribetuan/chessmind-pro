@@ -2,7 +2,7 @@
   "name": "ChessMind Pro",
   "short_name": "ChessMind",
   "description": "AI-powered chess coach — play, learn, and improve your game",
-  "start_url": "./chessmind-pro.html",
+  "start_url": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#1a1f2e",
