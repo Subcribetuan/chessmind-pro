@@ -1,4 +1,4 @@
-const CACHE_NAME = 'chessmind-v1';
+const CACHE_NAME = 'chessmind-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -27,14 +27,17 @@ self.addEventListener('activate', e => {
 
 // Fetch — serve from cache, fall back to network
 self.addEventListener('fetch', e => {
-  // Don't cache API calls (Anthropic)
+  // Skip non-GET requests (POST to /api/coach, etc.) — Cache API only supports GET
+  if (e.request.method !== 'GET') return;
+
+  // Don't cache API calls
   if (e.request.url.includes('api.anthropic.com')) return;
+  if (e.request.url.includes('/api/')) return;
 
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
       return fetch(e.request).then(response => {
-        // Cache successful responses for future offline use
         if (response.ok) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
