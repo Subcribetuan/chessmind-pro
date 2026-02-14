@@ -579,26 +579,13 @@
   <div class="modal" style="text-align:center;">
     <div style="font-size:48px;margin-bottom:8px;">♞</div>
     <h2>ChessMind Pro</h2>
-    <p id="lockMsg" style="font-size:13px;color:var(--text-2);margin-bottom:16px;">Enter your password to continue</p>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:16px;">Enter your password to continue</p>
     <input type="password" id="lockInput" placeholder="Password" onkeydown="if(event.key==='Enter')unlockApp()" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--border-2);background:var(--bg-1);color:var(--text-1);font-size:15px;text-align:center;margin-bottom:12px;">
     <label style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;color:var(--text-2);margin-bottom:12px;cursor:pointer;">
       <input type="checkbox" id="rememberMe" style="width:16px;height:16px;cursor:pointer;"> Remember me for 7 days
     </label>
     <button class="btn primary" onclick="unlockApp()" style="width:100%;">Unlock</button>
     <div id="lockError" style="margin-top:8px;font-size:12px;color:var(--red);"></div>
-  </div>
-</div>
-
-<!-- PASSWORD SETUP (first time) -->
-<div class="overlay" id="setupPwOverlay" style="display:none;z-index:9999;">
-  <div class="modal" style="text-align:center;">
-    <div style="font-size:48px;margin-bottom:8px;">🔒</div>
-    <h2>Set a Password</h2>
-    <p style="font-size:13px;color:var(--text-2);margin-bottom:16px;">Protect your app and API key. You'll need this password every time you open the app.</p>
-    <input type="password" id="setupPwInput" placeholder="Choose a password" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--border-2);background:var(--bg-1);color:var(--text-1);font-size:15px;text-align:center;margin-bottom:8px;">
-    <input type="password" id="setupPwConfirm" placeholder="Confirm password" onkeydown="if(event.key==='Enter')setupPassword()" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--border-2);background:var(--bg-1);color:var(--text-1);font-size:15px;text-align:center;margin-bottom:12px;">
-    <button class="btn primary" onclick="setupPassword()" style="width:100%;">Set Password</button>
-    <div id="setupPwError" style="margin-top:8px;font-size:12px;color:var(--red);"></div>
   </div>
 </div>
 
@@ -672,12 +659,7 @@
     </div>
     <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-2);">
       <label style="font-size:13px;font-weight:600;color:var(--text-1);display:block;margin-bottom:4px;">Password</label>
-      <p style="font-size:11.5px;color:var(--text-3);margin-bottom:8px;">Change your app password. This protects your app and API key.</p>
-      <div style="display:flex;gap:8px;">
-        <input type="password" id="changePwInput" placeholder="New password" style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border-2);background:var(--bg-1);color:var(--text-1);font-size:13px;">
-        <button class="btn" onclick="changePassword()" style="white-space:nowrap;">Change</button>
-      </div>
-      <div id="changePwStatus" style="margin-top:6px;font-size:12px;"></div>
+      <p style="font-size:11.5px;color:var(--text-3);margin-bottom:8px;">Password is set in the server environment. To change it, update APP_PASSWORD in Vercel.</p>
     </div>
   </div>
 </div>
@@ -685,84 +667,53 @@
 <script>
 const $=id=>document.getElementById(id);
 // ========== PASSWORD / LOCK SYSTEM ==========
-// Simple hash for password storage (not cryptographic, but good enough for client-side lock)
-function simpleHash(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) {
-    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
-  }
-  return 'h_' + Math.abs(h).toString(36);
-}
-
 let appUnlocked = false;
-const storedPwHash = localStorage.getItem('chessmind_pw');
 
 function initLock() {
-  if (!storedPwHash) {
-    // First time — ask user to set a password
-    $('setupPwOverlay').style.display = 'flex';
-  } else {
-    // Check if "remember me" is still valid
-    const rememberUntil = localStorage.getItem('chessmind_remember');
-    if (rememberUntil && Date.now() < parseInt(rememberUntil)) {
-      // Still remembered — skip lock screen
-      appUnlocked = true;
-      $('colorOverlay').style.display = 'flex';
-      return;
-    }
-    // Show lock screen
-    $('lockOverlay').style.display = 'flex';
-    setTimeout(() => $('lockInput').focus(), 100);
-  }
-}
-
-function setupPassword() {
-  const pw = $('setupPwInput').value;
-  const confirm = $('setupPwConfirm').value;
-  if (pw.length < 4) {
-    $('setupPwError').textContent = 'Password must be at least 4 characters.';
+  // Check if "remember me" is still valid
+  const rememberUntil = localStorage.getItem('chessmind_remember');
+  if (rememberUntil && Date.now() < parseInt(rememberUntil)) {
+    appUnlocked = true;
+    $('colorOverlay').style.display = 'flex';
     return;
   }
-  if (pw !== confirm) {
-    $('setupPwError').textContent = 'Passwords do not match.';
-    return;
-  }
-  localStorage.setItem('chessmind_pw', simpleHash(pw));
-  $('setupPwOverlay').style.display = 'none';
-  appUnlocked = true;
-  $('colorOverlay').style.display = 'flex';
+  // Show lock screen
+  $('lockOverlay').style.display = 'flex';
+  setTimeout(() => $('lockInput').focus(), 100);
 }
 
-function unlockApp() {
+async function unlockApp() {
   const input = $('lockInput').value;
-  if (simpleHash(input) === storedPwHash) {
+  if (!input) { $('lockError').textContent = 'Enter a password.'; return; }
+  $('lockError').textContent = '';
+  try {
+    const r = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: input })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      $('lockOverlay').style.display = 'none';
+      appUnlocked = true;
+      $('lockInput').value = '';
+      if ($('rememberMe').checked) {
+        localStorage.setItem('chessmind_remember', Date.now() + 7 * 24 * 60 * 60 * 1000);
+      } else {
+        localStorage.removeItem('chessmind_remember');
+      }
+      $('colorOverlay').style.display = 'flex';
+    } else {
+      $('lockError').textContent = 'Wrong password. Try again.';
+      $('lockInput').value = '';
+      $('lockInput').focus();
+    }
+  } catch(e) {
+    // Server not available (local dev) — skip lock
     $('lockOverlay').style.display = 'none';
     appUnlocked = true;
-    $('lockInput').value = '';
-    $('lockError').textContent = '';
-    // Save "remember me" if checked (7 days)
-    if ($('rememberMe').checked) {
-      localStorage.setItem('chessmind_remember', Date.now() + 7 * 24 * 60 * 60 * 1000);
-    } else {
-      localStorage.removeItem('chessmind_remember');
-    }
     $('colorOverlay').style.display = 'flex';
-  } else {
-    $('lockError').textContent = 'Wrong password. Try again.';
-    $('lockInput').value = '';
-    $('lockInput').focus();
   }
-}
-
-function changePassword() {
-  const newPw = $('changePwInput').value;
-  if (newPw.length < 4) {
-    $('changePwStatus').innerHTML = '<span style="color:var(--red)">Must be at least 4 characters.</span>';
-    return;
-  }
-  localStorage.setItem('chessmind_pw', simpleHash(newPw));
-  $('changePwInput').value = '';
-  $('changePwStatus').innerHTML = '<span style="color:var(--mint)">Password changed!</span>';
 }
 
 const PIECES={K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙',k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'};
