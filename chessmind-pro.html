@@ -1299,7 +1299,12 @@ const colorName = c => c === 'w' ? 'White' : 'Black';
 // AI API settings
 let apiKey = localStorage.getItem('chessmind_apikey') || '';
 let aiModel = localStorage.getItem('chessmind_model') || 'claude-haiku-4-5-20251001';
-function hasApi() { return apiKey.length > 10; }
+let serverApiAvailable = false;
+function hasApi() { return serverApiAvailable || apiKey.length > 10; }
+// Check if server-side API route is available (Vercel deployment)
+fetch('/api/coach', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ system: 'test', message: 'test', max_tokens: 1 })
+}).then(r => { if (r.status !== 404 && r.status !== 405) serverApiAvailable = true; }).catch(() => {});
 
 // AI response cache — keyed by position + request type
 let coachCache = JSON.parse(localStorage.getItem('chessmind_cache') || '{}');
@@ -1827,24 +1832,40 @@ function getCoachMsg(move, ev, notation) {
 }
 
 async function callClaude(systemPrompt, userMsg, maxTokens=300){
-  if(!hasApi()) return null;
   // Inject player profile into system prompt for personalized coaching
   const profile = getProfileContext();
   const fullSystem = profile ? systemPrompt + profile : systemPrompt;
-  try{
-    const r=await fetch("https://api.anthropic.com/v1/messages",{
-      method:"POST",
-      headers:{
-        "Content-Type":"application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true"
-      },
-      body:JSON.stringify({model:aiModel, max_tokens:maxTokens, system:fullSystem, messages:[{role:"user",content:userMsg}]})
+
+  // Try server-side API route first (Vercel deployment)
+  try {
+    const r = await fetch('/api/coach', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ system: fullSystem, message: userMsg, max_tokens: maxTokens, model: aiModel })
     });
-    if(!r.ok){ const e=await r.json().catch(()=>({})); console.warn('API error:', r.status, e); return null; }
-    const d=await r.json();return d.content.map(b=>b.text||'').join('');
-  }catch(e){ console.warn('callClaude error:', e); return null; }
+    if (r.ok) {
+      const d = await r.json();
+      if (d.text) return d.text;
+    }
+  } catch(e) { /* server route not available, try client-side */ }
+
+  // Fallback: direct API call if user has a local API key (for local dev / GitHub Pages)
+  if (!hasApi()) return null;
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({ model: aiModel, max_tokens: maxTokens, system: fullSystem, messages: [{ role: 'user', content: userMsg }] })
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d.content.map(b => b.text || '').join('');
+  } catch(e) { console.warn('callClaude error:', e); return null; }
 }
 
 // Cached wrapper — checks cache before calling API, saves response after
