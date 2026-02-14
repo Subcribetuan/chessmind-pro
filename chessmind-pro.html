@@ -573,6 +573,31 @@
   </div>
 </div>
 
+<!-- LOCK SCREEN -->
+<div class="overlay" id="lockOverlay" style="display:none;z-index:9999;">
+  <div class="modal" style="text-align:center;">
+    <div style="font-size:48px;margin-bottom:8px;">♞</div>
+    <h2>ChessMind Pro</h2>
+    <p id="lockMsg" style="font-size:13px;color:var(--text-2);margin-bottom:16px;">Enter your password to continue</p>
+    <input type="password" id="lockInput" placeholder="Password" onkeydown="if(event.key==='Enter')unlockApp()" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--border-2);background:var(--bg-1);color:var(--text-1);font-size:15px;text-align:center;margin-bottom:12px;">
+    <button class="btn primary" onclick="unlockApp()" style="width:100%;">Unlock</button>
+    <div id="lockError" style="margin-top:8px;font-size:12px;color:var(--red);"></div>
+  </div>
+</div>
+
+<!-- PASSWORD SETUP (first time) -->
+<div class="overlay" id="setupPwOverlay" style="display:none;z-index:9999;">
+  <div class="modal" style="text-align:center;">
+    <div style="font-size:48px;margin-bottom:8px;">🔒</div>
+    <h2>Set a Password</h2>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:16px;">Protect your app and API key. You'll need this password every time you open the app.</p>
+    <input type="password" id="setupPwInput" placeholder="Choose a password" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--border-2);background:var(--bg-1);color:var(--text-1);font-size:15px;text-align:center;margin-bottom:8px;">
+    <input type="password" id="setupPwConfirm" placeholder="Confirm password" onkeydown="if(event.key==='Enter')setupPassword()" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--border-2);background:var(--bg-1);color:var(--text-1);font-size:15px;text-align:center;margin-bottom:12px;">
+    <button class="btn primary" onclick="setupPassword()" style="width:100%;">Set Password</button>
+    <div id="setupPwError" style="margin-top:8px;font-size:12px;color:var(--red);"></div>
+  </div>
+</div>
+
 <!-- COLOR SELECTION MODAL -->
 <div class="overlay" id="colorOverlay" style="display:none">
   <div class="modal">
@@ -641,11 +666,87 @@
       <div id="profileStats" style="font-size:12px;color:var(--text-2);line-height:1.6;"></div>
       <button class="btn" onclick="resetProfile()" style="font-size:12px;padding:4px 10px;margin-top:8px;">Reset Profile</button>
     </div>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-2);">
+      <label style="font-size:13px;font-weight:600;color:var(--text-1);display:block;margin-bottom:4px;">Password</label>
+      <p style="font-size:11.5px;color:var(--text-3);margin-bottom:8px;">Change your app password. This protects your app and API key.</p>
+      <div style="display:flex;gap:8px;">
+        <input type="password" id="changePwInput" placeholder="New password" style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border-2);background:var(--bg-1);color:var(--text-1);font-size:13px;">
+        <button class="btn" onclick="changePassword()" style="white-space:nowrap;">Change</button>
+      </div>
+      <div id="changePwStatus" style="margin-top:6px;font-size:12px;"></div>
+    </div>
   </div>
 </div>
 
 <script>
 const $=id=>document.getElementById(id);
+// ========== PASSWORD / LOCK SYSTEM ==========
+// Simple hash for password storage (not cryptographic, but good enough for client-side lock)
+function simpleHash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  }
+  return 'h_' + Math.abs(h).toString(36);
+}
+
+let appUnlocked = false;
+const storedPwHash = localStorage.getItem('chessmind_pw');
+
+function initLock() {
+  if (!storedPwHash) {
+    // First time — ask user to set a password
+    $('setupPwOverlay').style.display = 'flex';
+  } else {
+    // Show lock screen
+    $('lockOverlay').style.display = 'flex';
+    setTimeout(() => $('lockInput').focus(), 100);
+  }
+}
+
+function setupPassword() {
+  const pw = $('setupPwInput').value;
+  const confirm = $('setupPwConfirm').value;
+  if (pw.length < 4) {
+    $('setupPwError').textContent = 'Password must be at least 4 characters.';
+    return;
+  }
+  if (pw !== confirm) {
+    $('setupPwError').textContent = 'Passwords do not match.';
+    return;
+  }
+  localStorage.setItem('chessmind_pw', simpleHash(pw));
+  $('setupPwOverlay').style.display = 'none';
+  appUnlocked = true;
+  $('colorOverlay').style.display = 'flex';
+}
+
+function unlockApp() {
+  const input = $('lockInput').value;
+  if (simpleHash(input) === storedPwHash) {
+    $('lockOverlay').style.display = 'none';
+    appUnlocked = true;
+    $('lockInput').value = '';
+    $('lockError').textContent = '';
+    $('colorOverlay').style.display = 'flex';
+  } else {
+    $('lockError').textContent = 'Wrong password. Try again.';
+    $('lockInput').value = '';
+    $('lockInput').focus();
+  }
+}
+
+function changePassword() {
+  const newPw = $('changePwInput').value;
+  if (newPw.length < 4) {
+    $('changePwStatus').innerHTML = '<span style="color:var(--red)">Must be at least 4 characters.</span>';
+    return;
+  }
+  localStorage.setItem('chessmind_pw', simpleHash(newPw));
+  $('changePwInput').value = '';
+  $('changePwStatus').innerHTML = '<span style="color:var(--mint)">Password changed!</span>';
+}
+
 const PIECES={K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙',k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'};
 const VALS={p:100,n:320,b:330,r:500,q:900,k:20000};
 const FILES='abcdefgh',RANKS='87654321';
@@ -2261,8 +2362,8 @@ async function execPuzzleMove(move) {
 
 // ========== INIT ==========
 render();setDiff();initTTS();updateStats();
-// Show color selection on load
-$('colorOverlay').style.display='flex';
+// Show lock screen or password setup on load
+initLock();
 
 // Register service worker for PWA
 if ('serviceWorker' in navigator) {
