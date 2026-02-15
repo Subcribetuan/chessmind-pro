@@ -1578,7 +1578,7 @@ async function execMove(move) {
         setTimeout(() => showBestMove(eval_.best.from[0], eval_.best.from[1], eval_.best.to[0], eval_.best.to[1]), 300);
       }
       cachedClaude('mistake', fen,
-        `You are a chess coach. Max 2 sentences. NEVER use chess notation like Qxd2, Nf3, etc. Only use plain English like "move your Queen to capture on that square". Be encouraging but direct.`,
+        `You are a chess coach. Max 2 sentences. When using chess notation like Qxd2, always explain it in plain English too, e.g. "capture their Queen on d2 (Qxd2)". Be encouraging but direct.`,
         `Player played: ${played}. This was a ${eval_.q}. The better move was: ${bestEng}. FEN: ${fen}. Explain in plain English why their move was wrong and what the better move achieves.`
       ).then(resp => {
         if(resp) addMsg(eval_.q==='blunder'?'warn':'coach', resp, eval_.best);
@@ -1643,7 +1643,7 @@ async function cpuMove(){
         const moveDesc = moveToEnglish(move).replace(/your/g, 'its');
         const moveNum = Math.ceil(chess.history.length / 2);
         const resp = await cachedClaude('cpumove', fen,
-          `You are a friendly chess coach. Max 2 short sentences. NEVER use chess notation like Qxd2, Nf3, e4, etc. Only use plain English like "The computer moved its Queen to capture your Knight". Be specific about threats.`,
+          `You are a friendly chess coach. Max 2 short sentences. When using chess notation like Nf3, always explain it in plain English too, e.g. "moved its Knight to f3 (Nf3)". Be specific about threats.`,
           `The computer (${colorName(aiColor)}) just played: ${moveDesc}. FEN: ${fen}. Move ${moveNum}. Player is ${colorName(playerColor)}. Explain what the computer did and warn about any threats. Tell the player what to do next.`
         );
         if(resp) addMsg('coach', resp);
@@ -1955,7 +1955,7 @@ async function getHint(){
     addMsg('tip', `Best move: ${englishHint}. Follow the green arrow!`, bestM);
     const fen=chess.getFEN();
     cachedClaude('hint', fen,
-      `You are a chess coach. Max 2 sentences. NEVER use chess notation like Qxd2, Nf3, etc. Only use plain English piece names and descriptions like "move your Bishop diagonally to attack their Rook".`,
+      `You are a chess coach. Max 2 sentences. When using chess notation, always explain it in plain English too, e.g. "move your Bishop to attack their Rook (Bf4)". Help the player learn the notation.`,
       `Player (${colorName(playerColor)}) needs a hint. The best move is: ${englishHint}. FEN: ${fen}. Explain WHY this is the best move — what tactic, threat, or positional advantage does it create?`
     ).then(resp => { if(resp) addMsg('coach', resp); });
   } else {
@@ -1972,7 +1972,7 @@ async function analyzePos(){
   }
   addMsg('sys','Analyzing…');
   const fen=chess.getFEN();
-  const apiAn=await cachedClaude('analyze', fen, `You are an expert chess coach. Max 4 sentences. NEVER use chess notation like Qxd2 or Nf3. Use plain English only — describe pieces and squares in words.`,`Analyze this position (FEN: ${fen}). Eval: ${ev>0?'+':''}${evalStr}. Who's better and why? What are the key threats? What should ${colorName(playerColor)} do next?`);
+  const apiAn=await cachedClaude('analyze', fen, `You are an expert chess coach. Max 4 sentences. When using chess notation, always explain it in plain English too, e.g. "move your Rook to the open file (Re1)". Help the player learn notation while understanding the advice.`,`Analyze this position (FEN: ${fen}). Eval: ${ev>0?'+':''}${evalStr}. Who's better and why? What are the key threats? What should ${colorName(playerColor)} do next?`);
   removeLast();
   addMsg('coach',apiAn||`Position eval: ${ev>0?'+':''}${evalStr}. ${ev>50?'White is better':ev<-50?'Black is better':'Roughly equal'}. Check your API key in Settings.`);
 }
@@ -1986,13 +1986,13 @@ async function askCoach(){
   }
   addMsg('sys','Thinking…');
   const fen=chess.getFEN();
-  const ans=await callClaude(`You are a chess coach. FEN: ${fen}. Student plays ${colorName(playerColor)}. Answer concisely (3 sentences max). NEVER use chess notation — use plain English only.`,q);
+  const ans=await callClaude(`You are a chess coach. FEN: ${fen}. Student plays ${colorName(playerColor)}. Answer concisely (3 sentences max). When using chess notation, always explain it in plain English too so the player can learn.`,q);
   removeLast();
   addMsg('tip',ans||"I'm having trouble connecting. Check your API key in Settings.");
 }
 
 // ========== UI HELPERS ==========
-// Strip markdown formatting and chess notation from AI responses
+// Strip markdown formatting from AI responses
 function stripMd(text) {
   return text
     .replace(/#{1,6}\s*/g, '')          // # headers
@@ -2001,9 +2001,6 @@ function stripMd(text) {
     .replace(/`(.*?)`/g, '$1')          // `code`
     .replace(/\n{2,}/g, ' ')            // double newlines → space
     .replace(/\n/g, ' ')                // single newlines → space
-    // Strip chess notation: Qxd2, Nf3, e4, Rf1+, O-O, etc.
-    .replace(/\b[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8][+#]?\b/g, '')
-    .replace(/\bO-O(-O)?\b/g, 'castle')
     .replace(/\s{2,}/g, ' ')            // collapse spaces
     .trim();
 }
