@@ -1282,6 +1282,10 @@ fetch('/api/coach', { method: 'POST', headers: { 'Content-Type': 'application/js
 }).then(r => { if (r.status !== 404 && r.status !== 405) serverApiAvailable = true; }).catch(() => {});
 
 // AI response cache — keyed by position + request type
+// Cache version — bump to flush stale entries with old formatting
+const CACHE_VER = 2;
+const storedVer = parseInt(localStorage.getItem('chessmind_cache_ver') || '0');
+if (storedVer < CACHE_VER) { localStorage.removeItem('chessmind_cache'); localStorage.setItem('chessmind_cache_ver', CACHE_VER); }
 let coachCache = JSON.parse(localStorage.getItem('chessmind_cache') || '{}');
 let cacheHits = 0, cacheMisses = 0;
 function cacheKey(type, fen) {
@@ -1988,7 +1992,7 @@ async function askCoach(){
 }
 
 // ========== UI HELPERS ==========
-// Strip markdown formatting from AI responses
+// Strip markdown formatting and chess notation from AI responses
 function stripMd(text) {
   return text
     .replace(/#{1,6}\s*/g, '')          // # headers
@@ -1997,6 +2001,9 @@ function stripMd(text) {
     .replace(/`(.*?)`/g, '$1')          // `code`
     .replace(/\n{2,}/g, ' ')            // double newlines → space
     .replace(/\n/g, ' ')                // single newlines → space
+    // Strip chess notation: Qxd2, Nf3, e4, Rf1+, O-O, etc.
+    .replace(/\b[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8][+#]?\b/g, '')
+    .replace(/\bO-O(-O)?\b/g, 'castle')
     .replace(/\s{2,}/g, ' ')            // collapse spaces
     .trim();
 }
